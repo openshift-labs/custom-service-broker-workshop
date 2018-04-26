@@ -1,0 +1,13 @@
+---
+id: workshop
+name: Service Broker workshop
+
+content:
+  url: https://raw.githubusercontent.com/openshift-labs/open-service-broker/master
+
+vars:
+  GUID: "<GUID>"
+
+modules:
+  activate:
+  - servicebroker

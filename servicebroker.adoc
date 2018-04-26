@@ -1,0 +1,200 @@
+## Getting the environment
+
+Choose our workshop from the selection
+
+----
+L1107 - Custom Service Broker for your Service Catalog
+----
+
+and enter the activation code
+
+----
+broker
+----
+
+{% if GUID == "<GUID>" %}
+on the next page your will be assigned a `GUID`, this identifies your
+provide OpenShift environment so you can freely modify all the aspects
+without interfering with the other attendees. **Please, remember the GUID!**
+{% else %}
+on the next page you see you have been assigned a GUID
+
+----
+{{GUID}}
+----
+{% endif %}
+
+## Connecting to OpenShift master node
+
+SSH to our workstation/bastion host using the command you see on the screen, e.g.
+
+----
+ssh workstation-{{GUID}}.rhpds.opentlc.com
+----
+
+and a welcome screen is going to be shown
+
+----
+#####################################################################################
+##                                                                                 ##
+##          Welcome to Red Hat Openshift Container Platform 3.7 workshop           ##
+##                                                                                 ##
+#####################################################################################
+Information about Your current environment:
+
+Your GUID: {{GUID}}
+OCP WEB UI access via IP: https://<INFRA-URL>:8443
+Wildcard FQDN for apps: *.<APP-URL>
+----
+
+now connect using the SSH to the master
+
+----
+ssh root@<INFRA-URL>
+----
+
+the password was provided to you by the lector on site.
+
+Now, verify everything works as expected
+
+----
+$ oc whoami
+
+system:admin
+----
+
+## Opening the Web console
+
+Let's connect to the web interface by opening the URL `https://<INFRA-URL>:8443`
+in your browser.
+
+In case you get into a infinite loop, do this on the master
+
+----
+curl -L https://gist.githubusercontent.com/pericnenad/76f05a737413946addcdb03fea4e49c4/raw/214c9b1cd3bab0cabce6d729c0d09bcea7547ab3/update_publicURL.sh > urls.sh
+chmod +x urls.sh
+./urls.sh
+----
+
+Login as `admin` with he same password you have used to connect using SSH to
+the server.
+
+## Making the user cluster admin
+
+Switch to the SSH and execute this command
+
+----
+oc adm policy add-cluster-role-to-user cluster-admin admin
+----
+
+this will make user `cluster-admin` which is pretty much an omnipotent role in
+the OpenShift cluster giving us privileges to do almost anything.
+
+## Creating new project for broker
+
+We need a project in the cluster, where our broker is going to live. Let's do
+it again it from the command line tool
+
+----
+oc new-project custom-broker
+----
+
+We will need as well a service account that will be privileged enough to
+provision stuff on behalf of your users. To make it simple for the sake of
+an example, let's make the service account a `cluster-admin` as well. In
+production environments you would set up more rigorous set of permissions to
+contain the user to only the specific actions that are required to execute
+the expected tasks
+
+----
+oc adm policy add-cluster-role-to-user cluster-admin system:serviceaccount:custom-broker:default
+----
+
+where the `custom-broker` is the name of the project that was created in the
+previous step.
+
+## Deploying the service broker
+
+Our broker as you already know is a Ruby application, so let's use the
+OpenShift capabilities to deploy it
+
+----
+oc new-app --name broker ruby~https://github.com/openshift-evangelists/service-broker-summit-demo.git
+----
+
+We will also need an access point so that the OpenShift platform has a mean
+to communicate with the broker, to do that we create a publicly available URL.
+In real world deployments, you would have some security features in place, but
+for our use-case it will be widely available to anyone.
+
+----
+oc expose svc broker
+----
+
+List the routes
+
+----
+oc get routes
+----
+
+and there should be just one.
+
+## Registering the broker with OpenShift
+
+To allow OpenShift to use the broker, we need to register it with the platform.
+
+To do that download this template `yaml` file
+
+----
+curl -o broker.yml -L https://raw.githubusercontent.com/openshift-evangelists/service-broker-summit-demo/master/broker.yml
+----
+
+edit it using `vim` (or other editor) and replace the `url` in the `spec` to
+your URL you have generated in the previous step. Now we have the information so
+let's register the broker with the platform
+
+----
+oc create -f broker.yml
+----
+
+## Deploying using the broker
+
+To deploy from the service catalog, let's switch over to the web console. In the
+browser click `Add to Project` and then `Browse Catalog`
+
+image::browse-catalog.png[]
+
+and either search for out provide services
+
+image::search-catalog.png[]
+
+or navigate through the catalog manually
+
+image::find-in-catalog.png[]
+
+choose the `workshops`, click `Next >`, fill in your `GUID` and click `Create`.
+
+Close the screen and get back to the overview page, the screen should look like
+
+image::workshop-deployed.png[]
+
+by clicking on the first line, it's going to expand the view
+
+image::workshop-expanded.png[]
+
+where you can see that the platform automatically provided public URL of
+the deployed workshop content, open the URL and you should see very similar
+content as you have seen here, except the `GUID` is already pre-set for you
+as you have provided that value as part of the deployment process and the
+service broker passed the information to the content manager that forms the
+real content the case when the content is deployed per-user with the `GUID`
+known at the deploy time. Which was not possible in this instance, as it's
+share for the whole class.
+
+## Conclusion
+
+Congratulations, you have managed to build your own service broker from source
+code into a real container, deploy it on top of OpenShift. Then you have
+managed register the broker with the platform. Finally you have used the broker
+to deploy user-specific instance of the content. That's no small feet for a
+2-hour long workshop!
