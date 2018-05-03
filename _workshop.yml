@@ -3,7 +3,7 @@ id: workshop
 name: Service Broker workshop
 
 content:
-  url: https://raw.githubusercontent.com/openshift-labs/open-service-broker/master
+  url: https://raw.githubusercontent.com/openshift-labs/custom-service-broker-workshop/master
 
 vars:
   GUID: "<GUID>"
